@@ -1,9 +1,14 @@
 from datetime import date
 
-from fastapi import Form, HTTPException
+from fastapi import Form, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
-from validation import validate_name, validate_gender, validate_birth_date
+from validation import (
+    validate_name,
+    validate_gender,
+    validate_birth_date,
+    validate_image,
+)
 
 
 class ProfileCreateSchema(BaseModel):
@@ -12,6 +17,7 @@ class ProfileCreateSchema(BaseModel):
     gender: str
     date_of_birth: date
     info: str
+    avatar: UploadFile | None
 
     @classmethod
     def from_form(
@@ -21,6 +27,7 @@ class ProfileCreateSchema(BaseModel):
         gender: str = Form(...),
         date_of_birth: date = Form(...),
         info: str = Form(...),
+        avatar: UploadFile | None = File(None),
     ) -> "ProfileCreateSchema":
         try:
             validate_name(first_name)
@@ -45,12 +52,18 @@ class ProfileCreateSchema(BaseModel):
                 detail="Info field cannot be empty or contain only spaces.",
             )
 
+        try:
+            validate_image(avatar)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
         return cls(
             first_name=first_name.lower(),
             last_name=last_name.lower(),
             gender=gender,
             date_of_birth=date_of_birth,
             info=info,
+            avatar=avatar,
         )
 
 

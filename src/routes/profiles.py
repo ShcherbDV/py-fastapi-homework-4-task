@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Header, File, UploadFile
+from fastapi import APIRouter, HTTPException, Header
 from fastapi.params import Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,12 +9,11 @@ from schemas.profiles import ProfileResponseSchema, ProfileCreateSchema
 from database import get_db, UserModel, UserProfileModel
 from security.interfaces import JWTAuthManagerInterface
 from storages import S3StorageInterface
-from validation import validate_image
 
 router = APIRouter()
 
 
-async def get_current_user(
+async def get_current_user_payload(
     auth_header: str | None = Header(None, alias="Authorization"),
     db: AsyncSession = Depends(get_db),
     jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
@@ -44,23 +43,15 @@ async def get_current_user(
 )
 async def user_profile_create(
     user_id: int,
-    payload: dict = Depends(get_current_user),
+    payload: dict = Depends(get_current_user_payload),
     profile: ProfileCreateSchema = Depends(ProfileCreateSchema.from_form),
-    avatar: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
     s3_client: S3StorageInterface = Depends(get_s3_storage_client),
 ):
 
-    if avatar is None:
-        raise HTTPException(status_code=422, detail="Avatar is required")
-
-    try:
-        validate_image(avatar)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-
-    user = await db.get(UserModel, payload.get("user_id"))
-    is_admin = user.group_id == 3
+    user = await db.get(UserModel, user_id)
+    current_user = await db.get(UserModel, payload.get("user_id"))
+    is_admin = current_user.group_id == 3
 
     if payload.get("user_id") != user_id and not is_admin:
         raise HTTPException(
@@ -76,7 +67,7 @@ async def user_profile_create(
     if existing_user:
         raise HTTPException(status_code=400, detail="User already has a profile.")
 
-    avatar_bytes = await avatar.read()
+    avatar_bytes = await profile.avatar.read()
     file_name = f"avatars/{user_id}_avatar.jpg"
     try:
         await s3_client.upload_file(
