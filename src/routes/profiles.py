@@ -80,7 +80,6 @@ async def user_profile_create(
         )
 
     created_profile = UserProfileModel(
-        id=user_id,
         user_id=user_id,
         first_name=profile.first_name,
         last_name=profile.last_name,

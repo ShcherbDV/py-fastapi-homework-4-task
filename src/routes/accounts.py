@@ -34,7 +34,6 @@ from schemas import (
 from security.interfaces import JWTAuthManagerInterface
 
 router = APIRouter()
-login_link = "http://127.0.0.1/accounts/login/"
 
 
 @router.post(
@@ -123,7 +122,7 @@ async def register_user(
         activation_token = ActivationTokenModel(user_id=new_user.id)
         db.add(activation_token)
 
-        activation_link = login_link + f"/activate?token={activation_token.token}"
+        activation_link = f"http://127.0.0.1/accounts/login/activate?token={activation_token.token}"
         background_task.add_task(
             email_sender.send_activation_email,
             str(new_user.email),
@@ -233,10 +232,11 @@ async def activate_account(
     user.is_active = True
     await db.delete(token_record)
     await db.commit()
+    activation_link = "http://127.0.0.1/accounts/login/"
     background_task.add_task(
         email_sender.send_activation_complete_email,
         str(activation_data.email),
-        login_link,
+        activation_link,
     )
 
     return MessageResponseSchema(message="User account activated successfully.")
@@ -287,7 +287,7 @@ async def request_password_reset_token(
     reset_token = PasswordResetTokenModel(user_id=cast(int, user.id))
     db.add(reset_token)
     await db.commit()
-    activation_link = login_link + f"/activate?token={reset_token.token}"
+    activation_link = f"http://127.0.0.1/accounts/login/reset_password?token={reset_token.token}"
     background_task.add_task(
         email_sender.send_password_reset_email,
         str(data.email),
@@ -411,10 +411,11 @@ async def reset_password(
             detail="An error occurred while resetting the password."
         )
 
+    activation_link = "http://127.0.0.1/accounts/login/"
     background_task.add_task(
         email_sender.send_password_reset_complete_email,
         str(data.email),
-        login_link,
+        activation_link,
     )
 
     return MessageResponseSchema(message="Password reset successfully.")
